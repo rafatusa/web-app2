@@ -21,7 +21,11 @@ jobs:
       server_ip: ${{ steps.get_ip.outputs.ip }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: git clone ${{ github.server_url }}/${{ github.repository }} . && git checkout ${{ github.sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -101,7 +105,11 @@ jobs:
     needs: provision
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 5
+          max_attempts: 3
+          command: git clone ${{ github.server_url }}/${{ github.repository }} . && git checkout ${{ github.sha }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
