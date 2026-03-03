@@ -1,0 +1,98 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+  become: yes
+
+- name: Ensure Nginx service is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+  become: yes
+
+- name: Remove default Nginx site configuration
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  become: yes
+  notify: Reload Nginx
+
+- name: Create Nginx configuration directory for Web-app2
+  file:
+    path: /etc/nginx/sites-available
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: yes
+
+- name: Deploy Nginx virtual host configuration for Web-app2
+  template:
+    src: web-app2.conf.j2
+    dest: /etc/nginx/sites-available/web-app2.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: Reload Nginx
+
+- name: Enable Web-app2 Nginx site
+  file:
+    src: /etc/nginx/sites-available/web-app2.conf
+    dest: /etc/nginx/sites-enabled/web-app2.conf
+    state: link
+  become: yes
+  notify: Reload Nginx
+
+- name: Create web root directory for Web-app2
+  file:
+    path: /var/www/web-app2
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  become: yes
+
+- name: Create Nginx log directory for Web-app2
+  file:
+    path: /var/log/nginx/web-app2
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  become: yes
+
+- name: Test Nginx configuration
+  command: nginx -t
+  become: yes
+  changed_when: false
+
+- name: Open HTTP port in UFW firewall
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Open HTTPS port in UFW firewall
+  ufw:
+    rule: allow
+    port: '443'
+    proto: tcp
+  become: yes
+  when: ansible_os_family == "Debian"
+
+- name: Ensure Nginx is running after configuration
+  service:
+    name: nginx
+    state: restarted
+  become: yes
