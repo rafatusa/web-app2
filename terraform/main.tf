@@ -84,6 +84,7 @@ resource "aws_security_group" "web_app_sg" {
   }
   lifecycle {
     create_before_destroy = true
+    ignore_changes        = [name]
   }
   tags = {
     Project   = var.project_name
