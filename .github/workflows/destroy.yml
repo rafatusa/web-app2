@@ -1,0 +1,37 @@
+name: Destroy web-app2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=devops-agent-tfstate" \
+            -backend-config="key=web-app2/terraform.tfstate" \
+            -backend-config="region=us-east-1"
+
+      - name: Terraform Destroy
+        working-directory: ./terraform
+        run: |
+          terraform destroy -auto-approve \
+            -var="public_key=placeholder" \
+            -var="project_name=${{ secrets.PROJECT_NAME }}" \
+            -var="aws_region=${{ secrets.AWS_REGION }}" || true
