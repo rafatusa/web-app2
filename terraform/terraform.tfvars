@@ -1,0 +1,25 @@
+project_name         = "Web-app2"
+environment          = "production"
+aws_region           = "us-east-1"
+instance_type        = "t2.micro"
+ami_id               = "ami-0c55b159cbfafe1f0"
+key_name             = "web-app2-key"
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidr   = "10.0.1.0/24"
+availability_zone    = "us-east-1a"
+nginx_port           = 80
+ssh_port             = 22
+allowed_ssh_cidr     = "0.0.0.0/0"
+allowed_http_cidr    = "0.0.0.0/0"
+instance_count       = 1
+volume_size          = 20
+volume_type          = "gp2"
+nginx_version        = "latest"
+enable_monitoring    = true
+tags = {
+  Project     = "Web-app2"
+  Environment = "production"
+  ManagedBy   = "Terraform"
+  Owner       = "DevOps"
+  Application = "Nginx"
+}
