@@ -1,0 +1,190 @@
+name: Deploy web-app2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT_NAME: web-app2
+
+jobs:
+  provision:
+    name: Provision Infrastructure
+    runs-on: ubuntu-latest
+    outputs:
+      server_ip: ${{ steps.get_ip.outputs.ip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Check existing AWS resources
+        id: check_ec2
+        run: |
+          PROJECT="${{ secrets.PROJECT_NAME }}"
+          EXISTING_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Project,Values=$PROJECT" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text 2>/dev/null || echo "None")
+          KEY_EXISTS=$(aws ec2 describe-key-pairs \
+            --filters "Name=key-name,Values=$PROJECT-key" \
+            --query "KeyPairs[0].KeyName" --output text 2>/dev/null || echo "None")
+          SG_ID=$(aws ec2 describe-security-groups \
+            --filters "Name=group-name,Values=$PROJECT-sg" \
+            --query "SecurityGroups[0].GroupId" --output text 2>/dev/null || echo "None")
+          [ "$EXISTING_IP" != "None" ] && echo "exists=true" >> $GITHUB_OUTPUT || echo "exists=false" >> $GITHUB_OUTPUT
+          echo "key_exists=$KEY_EXISTS" >> $GITHUB_OUTPUT
+          echo "sg_id=$SG_ID" >> $GITHUB_OUTPUT
+          if [ "$EXISTING_IP" != "None" ] && [ "$EXISTING_IP" != "null" ] && [ -n "$EXISTING_IP" ]; then
+            echo "ip=$EXISTING_IP" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create S3 state bucket
+        if: steps.check_ec2.outputs.exists != 'true'
+        run: aws s3 mb s3://devops-agent-tfstate --region us-east-1 2>/dev/null || true
+
+      - name: Terraform Init
+        if: steps.check_ec2.outputs.exists != 'true'
+        run: terraform init
+        working-directory: terraform
+
+      - name: Import existing resources
+        if: steps.check_ec2.outputs.exists != 'true'
+        run: |
+          KEY="${{ steps.check_ec2.outputs.key_exists }}"
+          SG="${{ steps.check_ec2.outputs.sg_id }}"
+          [ "$KEY" != "None" ] && terraform import -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" aws_key_pair.deployer "${{ secrets.PROJECT_NAME }}-key" 2>/dev/null || true
+          [ "$SG" != "None" ] && terraform import -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" aws_security_group.sg "$SG" 2>/dev/null || true
+        working-directory: terraform
+
+      - name: Terraform Plan
+        if: steps.check_ec2.outputs.exists != 'true'
+        run: terraform plan -var="public_key=${{ secrets.SSH_PUBLIC_KEY }}" -out=tfplan
+        working-directory: terraform
+
+      - name: Terraform Apply
+        if: steps.check_ec2.outputs.exists != 'true'
+        run: terraform apply -auto-approve tfplan
+        working-directory: terraform
+
+      - name: Get IP
+        id: get_ip
+        run: |
+          if [ "${{ steps.check_ec2.outputs.exists }}" == "true" ]; then
+            echo "ip=${{ steps.check_ec2.outputs.ip }}" >> $GITHUB_OUTPUT
+          else
+            echo "ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
+          fi
+        working-directory: terraform
+
+  configure:
+    name: Configure Server
+    runs-on: ubuntu-latest
+    needs: provision
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ansible
+
+      - name: Write SSH private key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+
+      - name: Wait for SSH
+        run: |
+          for i in $(seq 1 30); do
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+              -i /tmp/ssh_key ubuntu@${{ needs.provision.outputs.server_ip }} echo ok \
+              && break || sleep 10
+          done
+
+      - name: Run Ansible Playbook
+        run: |
+          ansible-playbook \
+            -i "${{ needs.provision.outputs.server_ip }}," \
+            --private-key /tmp/ssh_key \
+            -u ubuntu \
+            ansible/playbook.yml
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f /tmp/ssh_key
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [provision, configure]
+    steps:
+      - name: Health check HTTP
+        run: |
+          SERVER_IP="${{ needs.provision.outputs.server_ip }}"
+          echo "Running health check against http://$SERVER_IP"
+          for i in $(seq 1 10); do
+            STATUS=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 http://$SERVER_IP || echo "000")
+            echo "Attempt $i: HTTP status $STATUS"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
+              echo "Health check passed with status $STATUS"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check failed after all attempts"
+          exit 1
+
+  notify:
+    name: Notify Deployment Complete
+    runs-on: ubuntu-latest
+    needs: [provision, configure, verify]
+    if: always()
+    steps:
+      - name: Print live URL
+        run: |
+          SERVER_IP="${{ needs.provision.outputs.server_ip }}"
+          echo "============================================"
+          echo "  Deployment of web-app2 complete!"
+          echo "  Region: us-east-1"
+          echo "  Server IP: $SERVER_IP"
+          echo "  Live URL: http://$SERVER_IP"
+          echo "  HTTPS URL: https://$SERVER_IP"
+          echo "============================================"
+
+      - name: Report status
+        run: |
+          if [ "${{ needs.verify.result }}" == "success" ]; then
+            echo "Deployment status: SUCCESS"
+          else
+            echo "Deployment status: FAILED — verify job result: ${{ needs.verify.result }}"
+            exit 1
+          fi
