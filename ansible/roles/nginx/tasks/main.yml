@@ -70,6 +70,15 @@
     mode: '0755'
   become: yes
 
+- name: Copy HTML file
+  copy:
+    src: "{{ playbook_dir }}/../html/index.html"
+    dest: /var/www/web-app2/index.html
+    owner: www-data
+    group: www-data
+    mode: '0644'
+  become: yes
+
 - name: Test Nginx configuration
   command: nginx -t
   become: yes
