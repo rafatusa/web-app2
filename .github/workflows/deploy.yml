@@ -1,4 +1,4 @@
-name: Deploy web-app2
+name: Deploy web-docker
 
 on:
   push:
@@ -11,7 +11,7 @@ concurrency:
 
 env:
   AWS_REGION: us-east-1
-  PROJECT_NAME: web-app2
+  PROJECT_NAME: web-docker
 
 jobs:
   provision:
@@ -21,11 +21,7 @@ jobs:
       server_ip: ${{ steps.get_ip.outputs.ip }}
     steps:
       - name: Checkout
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: git clone ${{ github.server_url }}/${{ github.repository }} . && git checkout ${{ github.sha }}
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -105,11 +101,7 @@ jobs:
     needs: provision
     steps:
       - name: Checkout
-        uses: nick-fields/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: git clone ${{ github.server_url }}/${{ github.repository }} . && git checkout ${{ github.sha }}
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -136,7 +128,7 @@ jobs:
               && break || sleep 10
           done
 
-      - name: Run Ansible Playbook
+      - name: Run Ansible playbook
         run: |
           ansible-playbook \
             -i "${{ needs.provision.outputs.server_ip }}," \
@@ -146,7 +138,7 @@ jobs:
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"
 
-      - name: Clean up SSH key
+      - name: Cleanup SSH key
         if: always()
         run: rm -f /tmp/ssh_key
 
@@ -159,17 +151,26 @@ jobs:
         run: |
           SERVER_IP="${{ needs.provision.outputs.server_ip }}"
           echo "Running health check against http://$SERVER_IP"
-          for i in $(seq 1 10); do
-            STATUS=$(curl -o /dev/null -s -w "%{http_code}" --connect-timeout 5 http://$SERVER_IP || echo "000")
-            echo "Attempt $i: HTTP status $STATUS"
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://$SERVER_IP" || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
-              echo "Health check passed with status $STATUS"
+              echo "Health check passed with HTTP $STATUS"
               exit 0
             fi
-            sleep 15
+            sleep 10
           done
           echo "Health check failed after all attempts"
           exit 1
+
+      - name: Verify SSH connectivity
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+            -i /tmp/ssh_key ubuntu@${{ needs.provision.outputs.server_ip }} \
+            "echo 'SSH OK' && docker ps && systemctl is-active docker"
+          rm -f /tmp/ssh_key
 
   notify:
     name: Notify Deployment Complete
@@ -181,18 +182,27 @@ jobs:
         run: |
           SERVER_IP="${{ needs.provision.outputs.server_ip }}"
           echo "============================================"
-          echo "  Deployment of web-app2 complete!"
-          echo "  Region: us-east-1"
-          echo "  Server IP: $SERVER_IP"
-          echo "  Live URL: http://$SERVER_IP"
-          echo "  HTTPS URL: https://$SERVER_IP"
+          echo "  Deployment: web-docker"
+          echo "  Region:     us-east-1"
+          echo "  Server IP:  $SERVER_IP"
+          echo "  Live URL:   http://$SERVER_IP"
+          echo "  Status:     ${{ needs.verify.result }}"
           echo "============================================"
 
-      - name: Report status
+      - name: Deployment summary
         run: |
-          if [ "${{ needs.verify.result }}" == "success" ]; then
-            echo "Deployment status: SUCCESS"
-          else
-            echo "Deployment status: FAILED — verify job result: ${{ needs.verify.result }}"
-            exit 1
-          fi
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## Deployment Summary — web-docker
+
+          | Field       | Value                                      |
+          |-------------|--------------------------------------------|
+          | Project     | web-docker                                 |
+          | Region      | us-east-1                                  |
+          | Server IP   | ${{ needs.provision.outputs.server_ip }}   |
+          | Live URL    | http://${{ needs.provision.outputs.server_ip }} |
+          | Provision   | ${{ needs.provision.result }}              |
+          | Configure   | ${{ needs.configure.result }}              |
+          | Verify      | ${{ needs.verify.result }}                 |
+          | Triggered   | ${{ github.actor }}                        |
+          | Commit      | ${{ github.sha }}                          |
+          EOF
