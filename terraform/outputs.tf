@@ -27,8 +27,3 @@ output "ssh_connection_string" {
   description = "SSH connection string for the EC2 instance"
   value       = "ssh -i ${var.key_name}.pem ec2-user@${aws_instance.web.public_ip}"
 }
-
-output "instance_state" {
-  description = "State of the EC2 instance"
-  value       = aws_instance.web.instance_state
-}
