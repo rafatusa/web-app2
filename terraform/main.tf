@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket         = "devops-agent-tfstate"
-    key            = "web-app2/terraform.tfstate"
+    key            = "web-docker/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
   }
@@ -17,8 +17,23 @@ provider "aws" {
   region = var.aws_region
 }
 
+variable "project_name" {
+  type    = string
+  default = "web-docker"
+}
+
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
+
 variable "public_key" {
   type = string
+}
+
+variable "instance_type" {
+  type    = string
+  default = "t3.micro"
 }
 
 data "aws_vpc" "default" {
@@ -53,7 +68,7 @@ resource "aws_key_pair" "deployer" {
   }
 }
 
-resource "aws_security_group" "web_app_sg" {
+resource "aws_security_group" "sg" {
   name        = "${var.project_name}-sg"
   description = "DevOps Agent managed"
   vpc_id      = data.aws_vpc.default.id
@@ -84,7 +99,6 @@ resource "aws_security_group" "web_app_sg" {
   }
   lifecycle {
     create_before_destroy = true
-    ignore_changes        = [name]
   }
   tags = {
     Project   = var.project_name
@@ -92,12 +106,12 @@ resource "aws_security_group" "web_app_sg" {
   }
 }
 
-resource "aws_instance" "web_app_instance" {
+resource "aws_instance" "server" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.deployer.key_name
   subnet_id              = tolist(data.aws_subnets.default.ids)[0]
-  vpc_security_group_ids = [aws_security_group.web_app_sg.id]
+  vpc_security_group_ids = [aws_security_group.sg.id]
 
   root_block_device {
     volume_size = 20
@@ -112,5 +126,9 @@ resource "aws_instance" "web_app_instance" {
 }
 
 output "public_ip" {
-  value = aws_instance.web_app_instance.public_ip
+  value = aws_instance.server.public_ip
+}
+
+output "instance_id" {
+  value = aws_instance.server.id
 }
