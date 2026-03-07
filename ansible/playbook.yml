@@ -22,7 +22,7 @@
 
     - name: Copy HTML file
       copy:
-        src: ../../html/index.html
+        src: ../html/index.html
         dest: /var/www/html/index.html
         mode: '0644'
         owner: www-data
