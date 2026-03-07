@@ -1,4 +1,4 @@
-name: Destroy web-app2
+name: Destroy Infrastructure - web-docker
 
 on:
   workflow_dispatch:
@@ -14,22 +14,22 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
-        working-directory: ./terraform
+        working-directory: terraform
         run: |
           terraform init \
             -backend-config="bucket=devops-agent-tfstate" \
-            -backend-config="key=web-app2/terraform.tfstate" \
+            -backend-config="key=web-docker/terraform.tfstate" \
             -backend-config="region=us-east-1"
 
       - name: Terraform Destroy
-        working-directory: ./terraform
+        working-directory: terraform
         run: |
           terraform destroy -auto-approve \
             -var="public_key=placeholder" \
