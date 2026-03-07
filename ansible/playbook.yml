@@ -1,5 +1,5 @@
 ---
-- name: Deploy nginx for web-app2
+- name: Deploy nginx for web-docker
   hosts: all
   become: yes
 
@@ -10,6 +10,10 @@
         state: restarted
 
   tasks:
+    - name: Wait for SSH to be available
+      wait_for_connection:
+        timeout: 300
+
     - name: Update apt cache
       apt:
         update_cache: yes
@@ -20,9 +24,17 @@
         name: nginx
         state: present
 
+    - name: Ensure /var/www/html directory exists
+      file:
+        path: /var/www/html
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
     - name: Copy HTML file
       copy:
-        src: ../html/index.html
+        src: html/index.html
         dest: /var/www/html/index.html
         mode: '0644'
         owner: www-data
@@ -49,6 +61,8 @@
           }
         dest: /etc/nginx/sites-enabled/app
         mode: '0644'
+        owner: root
+        group: root
       notify: restart nginx
 
     - name: Ensure nginx is started and enabled
