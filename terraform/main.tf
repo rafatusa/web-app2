@@ -53,7 +53,7 @@ resource "aws_key_pair" "deployer" {
   }
 }
 
-resource "aws_security_group" "web_app_sg" {
+resource "aws_security_group" "web_sg" {
   name        = "${var.project_name}-sg"
   description = "DevOps Agent managed"
   vpc_id      = data.aws_vpc.default.id
@@ -92,12 +92,12 @@ resource "aws_security_group" "web_app_sg" {
   }
 }
 
-resource "aws_instance" "web_app_instance" {
+resource "aws_instance" "web" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.deployer.key_name
   subnet_id              = tolist(data.aws_subnets.default.ids)[0]
-  vpc_security_group_ids = [aws_security_group.web_app_sg.id]
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
 
   root_block_device {
     volume_size = 20
@@ -112,5 +112,5 @@ resource "aws_instance" "web_app_instance" {
 }
 
 output "public_ip" {
-  value = aws_instance.web_app_instance.public_ip
+  value = aws_instance.web.public_ip
 }
