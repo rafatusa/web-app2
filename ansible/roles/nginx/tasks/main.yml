@@ -72,7 +72,7 @@
 
 - name: Copy HTML file
   copy:
-    src: index.html
+    src: "{{ playbook_dir }}/../../html/index.html"
     dest: /var/www/web-app2/index.html
     owner: www-data
     group: www-data
