@@ -1,21 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<title>DevOps Agent</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a1628;color:#fff;font-family:system-ui,sans-serif;height:100vh;display:flex;align-items:center;justify-content:center;text-align:center}
-h1{font-size:3rem;font-weight:900;background:linear-gradient(135deg,#00f5a0,#00d9f5);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sub{color:#94a3b8;margin-top:.75rem;font-size:1.1rem}
-.tag{display:inline-block;margin-top:1.5rem;background:rgba(0,245,160,0.1);border:1px solid rgba(0,245,160,0.3);color:#00f5a0;padding:.4rem 1.2rem;border-radius:999px;font-size:.85rem;letter-spacing:.1em}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>web-docker</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #0d0d0d;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .background {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(0, 122, 204, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(0, 168, 255, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .container {
+      position: relative;
+      text-align: center;
+      padding: 2rem;
+      z-index: 1;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(0, 122, 204, 0.12);
+      border: 1px solid rgba(0, 122, 204, 0.3);
+      border-radius: 100px;
+      padding: 0.35rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #4db8ff;
+      margin-bottom: 2rem;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4db8ff;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    .project-name {
+      font-size: clamp(3rem, 10vw, 7rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      background: linear-gradient(135deg, #ffffff 0%, #a0c4ff 50%, #4db8ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1.5rem;
+    }
+
+    .divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #4db8ff, transparent);
+      margin: 0 auto 1.5rem;
+    }
+
+    .tagline {
+      font-size: 1rem;
+      color: #666;
+      letter-spacing: 0.04em;
+      font-weight: 400;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 4rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      overflow: hidden;
+      max-width: 480px;
+      width: 100%;
+    }
+
+    .grid-item {
+      background: rgba(13, 13, 13, 0.8);
+      padding: 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s ease;
+    }
+
+    .grid-item:hover {
+      background: rgba(0, 122, 204, 0.07);
+    }
+
+    .grid-item-icon {
+      font-size: 1.3rem;
+      opacity: 0.7;
+    }
+
+    .grid-item-label {
+      font-size: 0.7rem;
+      color: #555;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .grid-item-value {
+      font-size: 0.85rem;
+      color: #ccc;
+      font-weight: 500;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 1.5rem;
+      font-size: 0.7rem;
+      color: #333;
+      letter-spacing: 0.05em;
+    }
+  </style>
 </head>
 <body>
-<div>
-  <h1>DevOps Auto Agent</h1>
-  <p class="sub">Built by <strong>Rafat Rahman</strong></p>
-  <span class="tag">⚡ The Next Big Thing</span>
-</div>
+
+  <div class="background"></div>
+
+  <div class="container">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Project
+    </div>
+
+    <h1 class="project-name">web-docker</h1>
+
+    <div class="divider"></div>
+
+    <p class="tagline">Containerized · Scalable · Ready to ship</p>
+
+    <div class="grid">
+      <div class="grid-item">
+        <span class="grid-item-icon">🐳</span>
+        <span class="grid-item-label">Runtime</span>
+        <span class="grid-item-value">Docker</span>
+      </div>
+      <div class="grid-item">
+        <span class="grid-item-icon">🌐</span>
+        <span class="grid-item-label">Type</span>
+        <span class="grid-item-value">Web App</span>
+      </div>
+      <div class="grid-item">
+        <span class="grid-item-icon">⚡</span>
+        <span class="grid-item-label">Status</span>
+        <span class="grid-item-value">Live</span>
+      </div>
+    </div>
+  </div>
+
+  <footer>web-docker &mdash; all rights reserved</footer>
+
 </body>
 </html>
