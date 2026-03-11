@@ -144,6 +144,7 @@ jobs:
       - name: Update ECS task definition with new image
         env:
           BUILD_IMAGE: ${{ needs.build-and-push.outputs.image }}
+          PROJECT: ${{ secrets.PROJECT_NAME }}
         run: |
           PROJECT="${{ secrets.PROJECT_NAME }}"
           IMAGE="$BUILD_IMAGE"
