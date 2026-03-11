@@ -149,6 +149,11 @@ jobs:
           PROJECT="${{ secrets.PROJECT_NAME }}"
           IMAGE="$BUILD_IMAGE"
 
+          if [ -z "$IMAGE" ]; then
+            echo "❌ BUILD_IMAGE is empty — cannot deploy"
+            exit 1
+          fi
+
           TASK_DEF=$(aws ecs describe-task-definition \
             --task-definition "$PROJECT" \
             --query "taskDefinition" \
