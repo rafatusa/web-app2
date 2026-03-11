@@ -98,6 +98,10 @@ resource "aws_security_group" "alb" {
     Project   = var.project_name
     ManagedBy = "devops-agent"
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ECS Tasks Security Group
