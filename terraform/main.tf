@@ -74,34 +74,15 @@ data "aws_subnets" "default" {
   }
 }
 
-# ALB Security Group
-resource "aws_security_group" "alb" {
-  name        = "${var.project_name}-alb-sg"
-  description = "Allow HTTP traffic to ALB"
-  vpc_id      = data.aws_vpc.default.id
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+# ALB Security Group - import existing if present
+data "aws_security_group" "alb_existing" {
+  filter {
+    name   = "group-name"
+    values = ["${var.project_name}-alb-sg"]
   }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Project   = var.project_name
-    ManagedBy = "devops-agent"
-  }
-
-  lifecycle {
-    create_before_destroy = true
-    ignore_changes        = [name]
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
   }
 }
 
@@ -115,7 +96,7 @@ resource "aws_security_group" "ecs" {
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+    security_groups = [data.aws_security_group.alb_existing.id]
   }
 
   egress {
@@ -141,7 +122,7 @@ resource "aws_lb" "main" {
   name               = "${var.project_name}-alb"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [data.aws_security_group.alb_existing.id]
   subnets            = data.aws_subnets.default.ids
 
   tags = {
@@ -283,17 +264,6 @@ resource "aws_ecs_service" "app" {
   tags = {
     Project   = var.project_name
     ManagedBy = "devops-agent"
-  }
-}
-
-data "aws_security_group" "alb_existing" {
-  filter {
-    name   = "group-name"
-    values = ["${var.project_name}-alb-sg"]
-  }
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
   }
 }
 
