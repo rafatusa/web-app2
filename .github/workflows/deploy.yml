@@ -142,9 +142,11 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Update ECS task definition with new image
+        env:
+          BUILD_IMAGE: ${{ needs.build-and-push.outputs.image }}
         run: |
           PROJECT="${{ secrets.PROJECT_NAME }}"
-          IMAGE="${{ needs.build-and-push.outputs.image }}"
+          IMAGE="$BUILD_IMAGE"
 
           TASK_DEF=$(aws ecs describe-task-definition \
             --task-definition "$PROJECT" \
@@ -152,11 +154,13 @@ jobs:
             --output json)
 
           NEW_TASK_DEF=$(echo "$TASK_DEF" | python3 -c "
-          import json, sys
+          import json, sys, os
           td = json.load(sys.stdin)
+          image = os.environ['BUILD_IMAGE']
+          project = os.environ['PROJECT']
           for c in td['containerDefinitions']:
-              if c['name'] == '$PROJECT':
-                  c['image'] = '$IMAGE'
+              if c['name'] == project:
+                  c['image'] = image
           for key in ['taskDefinitionArn','revision','status','requiresAttributes','compatibilities','registeredAt','registeredBy']:
               td.pop(key, None)
           print(json.dumps(td))
