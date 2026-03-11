@@ -185,7 +185,7 @@
         seconds: 5
 
     - name: Verify container is running
-      shell: "docker ps --filter name=app --filter status=running --format '{{.Names}}'"
+      shell: "docker ps --filter name=app --filter status=running --format '{% raw %}{{.Names}}{% endraw %}'"
       register: result
       retries: 3
       delay: 5
