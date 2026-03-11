@@ -1,0 +1,156 @@
+---
+- name: Deploy nginx on EC2
+  hosts: all
+  become: yes
+
+  vars:
+    app_name: web-app2
+    web_root: /var/www/html
+    nginx_conf: /etc/nginx/sites-available/default
+
+  handlers:
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: yes
+
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure nginx is started and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Create web root directory
+      file:
+        path: "{{ web_root }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Deploy index.html
+      copy:
+        content: |
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{{ app_name }}</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f0f2f5;
+              }
+              .container {
+                text-align: center;
+                background: white;
+                padding: 40px 60px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              }
+              h1 { color: #333; }
+              p { color: #666; }
+              .badge {
+                display: inline-block;
+                background: #28a745;
+                color: white;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 0.85em;
+                margin-top: 10px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>{{ app_name }}</h1>
+              <p>nginx is running successfully on EC2</p>
+              <span class="badge">us-east-1</span>
+            </div>
+          </body>
+          </html>
+        dest: "{{ web_root }}/index.html"
+        owner: www-data
+        group: www-data
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Configure nginx default site
+      copy:
+        content: |
+          server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+
+              root {{ web_root }};
+              index index.html index.htm;
+
+              server_name _;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+
+              location /health {
+                  access_log off;
+                  return 200 "healthy\n";
+                  add_header Content-Type text/plain;
+              }
+
+              gzip on;
+              gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+              gzip_min_length 256;
+          }
+        dest: "{{ nginx_conf }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart nginx
+
+    - name: Remove default nginx symlink if present
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart nginx
+
+    - name: Enable nginx default site
+      file:
+        src: "{{ nginx_conf }}"
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+        owner: root
+        group: root
+      notify: Restart nginx
+
+    - name: Test nginx configuration
+      command: nginx -t
+      changed_when: false
+
+    - name: Ensure nginx is running after configuration
+      service:
+        name: nginx
+        state: started
+        enabled: yes
