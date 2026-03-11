@@ -20,7 +20,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        working-directory: web-app2
+        working-directory: terraform
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
@@ -28,7 +28,7 @@ jobs:
             -backend-config="key=web-app2/terraform.tfstate"
 
       - name: Terraform Destroy
-        working-directory: web-app2
+        working-directory: terraform
         run: |
           terraform destroy -auto-approve \
             -var="project_name=${{ secrets.PROJECT_NAME }}" \
