@@ -129,6 +129,11 @@ resource "aws_security_group" "ecs" {
     Project   = var.project_name
     ManagedBy = "devops-agent"
   }
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes        = [name]
+  }
 }
 
 # Application Load Balancer
