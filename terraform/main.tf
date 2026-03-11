@@ -286,6 +286,17 @@ resource "aws_ecs_service" "app" {
   }
 }
 
+data "aws_security_group" "alb_existing" {
+  filter {
+    name   = "group-name"
+    values = ["${var.project_name}-alb-sg"]
+  }
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
 output "alb_url" {
   value       = "http://${aws_lb.main.dns_name}"
   description = "Application Load Balancer URL"
