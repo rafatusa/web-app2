@@ -8,20 +8,22 @@ jobs:
     name: Terraform Destroy
     runs-on: ubuntu-latest
 
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        working-directory: terraform
+        working-directory: ./terraform
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
@@ -29,15 +31,13 @@ jobs:
             -backend-config="key=web-app2/terraform.tfstate"
 
       - name: Terraform Destroy
-        working-directory: terraform
+        working-directory: ./terraform
         run: |
           terraform destroy -auto-approve \
             -var="project_name=${{ secrets.PROJECT_NAME }}" \
             -var="aws_region=${{ secrets.AWS_REGION }}" \
             -var="public_key=placeholder"
 
-      - name: Cleanup Key Pair
+      - name: Cleanup key pair
         run: |
-          aws ec2 delete-key-pair \
-            --key-name "${{ secrets.PROJECT_NAME }}-key" \
-            --region "${{ secrets.AWS_REGION }}" || true
+          aws ec2 delete-key-pair --key-name ${{ secrets.PROJECT_NAME }}-key --region ${{ secrets.AWS_REGION }} || true
