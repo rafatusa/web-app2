@@ -7,7 +7,7 @@
 | Field | Value |
 |-------|-------|
 | **App** | nginx |
-| **Target** | EC2 Direct |
+| **Target** | EC2 + Docker |
 | **Branch** | `main` |
 | **Region** | us-east-1 |
 | **Live URL** | http://18.232.126.151 |
@@ -16,13 +16,14 @@
 ## 🏗 Infrastructure
 
 - **Infrastructure**: AWS EC2 instance
-- **Config**: Ansible playbook
+- **Container Runtime**: Docker (installed via Ansible)
+- **App Delivery**: Docker container running nginx
 - **State**: S3 Terraform backend
 
 ## ⚙️ Pipeline
 
 ```
-Terraform → Ansible (direct install) → Verify → Notify
+Terraform → Ansible (install Docker, build image, run container) → Verify → Notify
 ```
 
 ## 📁 Key Files
@@ -30,10 +31,25 @@ Terraform → Ansible (direct install) → Verify → Notify
 | File | Purpose |
 |------|---------|
 | `terraform/main.tf` | AWS infrastructure definition |
-| `ansible/playbook.yml` | Server configuration & app setup |
+| `ansible/playbook.yml` | Docker install, image build & container launch |
+| `docker/Dockerfile` | nginx Docker image definition |
 | `.github/workflows/deploy.yml` | CI/CD deploy pipeline |
 | `.github/workflows/destroy.yml` | Infrastructure teardown |
 
+## 🐳 Docker Deployment
+
+The nginx app is packaged and run as a Docker container on the EC2 instance:
+
+1. **Ansible installs Docker** — Docker Engine and dependencies are installed and configured on the EC2 host
+2. **Ansible builds the image** — The `Dockerfile` in `docker/` is copied to the host and built as `web-app2:latest`
+3. **Ansible runs the container** — The container is started with port 80 exposed and configured to restart automatically
+
+```
+EC2 Instance
+└── Docker Engine
+    └── Container: web-app2 (nginx)
+        └── Port 80 → host port 80
+```
 
 ## 🔧 How to Deploy
 
